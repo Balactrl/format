@@ -8,7 +8,6 @@ import os
 st.set_page_config(page_title="Account Data Formatter", page_icon="📊", layout="wide")
 
 st.title("📊 Account Data Formatter")
-st.write("Upload a file with TID, TX_DATE, TXN AMT, MDR AMT, GST columns to transform it into the required format.")
 
 # Load store.xlsx file for TID to siteid mapping
 store_lookup = {}
@@ -22,7 +21,6 @@ possible_dirs = [
     os.path.dirname(os.path.abspath(__file__)) if '__file__' in globals() else None,
     os.getcwd()
 ]
-possible_dirs = [d for d in possible_dirs if d and os.path.exists(d)]
 
 possible_store_files = ['STORE.xlsx']
 
@@ -34,6 +32,53 @@ for current_dir in possible_dirs:
             break
     if store_file_path:
         break
+
+# Allow user to upload a STORE.xlsx to override local lookup
+store_upload = st.file_uploader(
+    "Upload STORE.xlsx(csv or excel)",
+    type=['xlsx', 'xls'],
+    accept_multiple_files=False,
+    help="If provided, this file will be used to map TID -> Offset Store Code/CC"
+)
+
+if store_upload is not None:
+    try:
+        try:
+            store_df = pd.read_excel(store_upload, engine='openpyxl')
+        except Exception:
+            store_df = pd.read_excel(store_upload)
+
+        # Process uploaded store_df the same way as a found file
+        tid_col = None
+        pharmacy_code_col = None
+        for col in store_df.columns:
+            col_upper = str(col).upper().strip()
+            if col_upper in ['TID NUMBER', 'TIDNUMBER', 'TID_NUMBER', 'TID-NUMBER']:
+                tid_col = col
+            elif tid_col is None and col_upper == 'TID':
+                tid_col = col
+            elif col_upper in ['PHARMACY CODE', 'PHARMACYCODE', 'PHARMACY_CODE', 'PHARMACY-CODE']:
+                pharmacy_code_col = col
+            elif pharmacy_code_col is None and col_upper in ['SITEID', 'SITE ID', 'SITE_ID', 'SITE-ID']:
+                pharmacy_code_col = col
+
+        if tid_col and pharmacy_code_col:
+            store_df_clean = store_df[[tid_col, pharmacy_code_col]].dropna(subset=[tid_col, pharmacy_code_col])
+            for _, row in store_df_clean.iterrows():
+                tid_val = row[tid_col]
+                pharmacy_code_val = row[pharmacy_code_col]
+                store_lookup[str(tid_val).strip()] = str(pharmacy_code_val).strip()
+                try:
+                    tid_num = float(tid_val)
+                    store_lookup_numeric[tid_num] = str(pharmacy_code_val).strip()
+                except:
+                    pass
+
+            st.info(f"✅ Store file uploaded: {len(store_lookup)} TID mappings loaded from upload")
+        else:
+            st.warning("⚠️ Uploaded store file missing required columns (TID / Pharmacy Code or siteid)")
+    except Exception as e:
+        st.warning(f"⚠️ Could not read uploaded store file: {str(e)}")
 
 if store_file_path:
     try:
@@ -90,12 +135,11 @@ if store_file_path:
         st.warning(f"⚠️ Could not load store file: {str(e)}")
         import traceback
         st.code(traceback.format_exc())
-else:
-    st.warning("⚠️ Store file (STORE.xlsx) not found. Offset Store Code/CC will be empty.")
+
 
 # File uploader - explicitly allow Excel and CSV files
 uploaded_file = st.file_uploader(
-    "Upload CSV or Excel file", 
+    "Upload Conversion data CSV or Excel file", 
     type=["csv", "xlsx", "xls"],
     accept_multiple_files=False,
     help="Supported formats: CSV (.csv), Excel (.xlsx, .xls)"
