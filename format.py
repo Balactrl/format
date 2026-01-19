@@ -218,31 +218,31 @@ if uploaded_file is not None:
                 matches_not_found = 0
                 
                 for idx, row in df.iterrows():
-                    # Parse TX_DATE and add 1 day
+                    # Parse SETTLEMENT_DATE and add 1 day
                     try:
                         # Try different date formats
-                        tx_date = pd.to_datetime(row['TX_DATE'], errors='coerce')
-                        if pd.isna(tx_date):
+                        SETTLEMENT_DATE = pd.to_datetime(row['SETTLEMENT_DATE'], errors='coerce')
+                        if pd.isna(SETTLEMENT_DATE):
                             # Try common date formats
                             for fmt in ['%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y', '%Y/%m/%d']:
                                 try:
-                                    tx_date = datetime.strptime(str(row['TX_DATE']), fmt)
+                                    SETTLEMENT_DATE = datetime.strptime(str(row['SETTLEMENT_DATE']), fmt)
                                     break
                                 except:
                                     continue
                         
-                        if pd.isna(tx_date):
-                            st.warning(f"⚠️ Could not parse date in row {idx + 1}: {row['TX_DATE']}")
+                        if pd.isna(SETTLEMENT_DATE):
+                            st.warning(f"⚠️ Could not parse date in row {idx + 1}: {row['SETTLEMENT_DATE']}")
                             voucher_date = ""
-                            original_date_str = str(row['TX_DATE'])
+                            original_date_str = str(row['SETTLEMENT_DATE'])
                         else:
                             # Add 1 day
-                            voucher_date = (tx_date + timedelta(days=1)).strftime('%d-%m-%Y')
-                            original_date_str = tx_date.strftime('%d-%m-%Y')
+                            voucher_date = (SETTLEMENT_DATE + timedelta(days=1)).strftime('%d-%m-%Y')
+                            original_date_str = SETTLEMENT_DATE.strftime('%d-%m-%Y')
                     except Exception as e:
                         st.warning(f"⚠️ Date parsing error in row {idx + 1}: {str(e)}")
                         voucher_date = ""
-                        original_date_str = str(row['TX_DATE'])
+                        original_date_str = str(row['SETTLEMENT_DATE'])
                     
                     # Get MDR AMT, TXN AMT, and GST
                     try:
@@ -359,7 +359,7 @@ if uploaded_file is not None:
                     
                     # Add remaining columns
                     narration_text = (
-                        f"BEING CREDIT CARD SALES {original_date_str} COLLECTION "
+                        f"BEING CREDIT CARD SALES {original_date_str} COLLECTION RECEIVED "
                         f"FROM SBI BANK-1585 FOR THE DT: {voucher_date}"
                     )
 
@@ -544,11 +544,11 @@ if uploaded_file is not None:
                 if net_sum and net_sum != 0:
                     summary_row = {col: '' for col in output_columns}
 
-                    # Voucher date: use last parsable TX_DATE +1 day if available
+                    # Voucher date: use last parsable SETTLEMENT_DATE +1 day if available
                     voucher_date_val = ''
                     try:
-                        if 'TX_DATE' in df.columns:
-                            td = pd.to_datetime(df['TX_DATE'], errors='coerce')
+                        if 'SETTLEMENT_DATE' in df.columns:
+                            td = pd.to_datetime(df['SETTLEMENT_DATE'], errors='coerce')
                             if not td.isna().all():
                                 voucher_date_val = (td.dropna().iloc[-1] + timedelta(days=1)).strftime('%d-%m-%Y')
                     except Exception:
@@ -567,13 +567,13 @@ if uploaded_file is not None:
                     summary_row['Chennal'] = 'offline'
                     # Set Offset Store Code/CC to requested value
                     if 'Offset Store Code/CC' in summary_row:
-                        summary_row['Offset Store Code/CC'] = '9009'
+                        summary_row['Offset Store Code/CC'] = '9000'
                     else:
-                        summary_row['Offset Store Code/CC'] = '9009'
+                        summary_row['Offset Store Code/CC'] = '9000'
 
                     # Narration: mirror the same narration style used in create_base_row
                     narration_text = (
-                        f"BEING CREDIT CARD SALES {voucher_date_val} COLLECTION "
+                        f"BEING CREDIT CARD SALES {original_date_str} COLLECTION RECEIVED "
                         f"FROM SBI BANK-1585 FOR THE DT: {voucher_date_val}"
                     )
                     summary_row['Line Narration'] = narration_text
